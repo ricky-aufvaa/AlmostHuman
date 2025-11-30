@@ -51,14 +51,11 @@ Make sure your `.env` file contains:
 AWS_ACCESS_KEY_ID=your_access_key
 AWS_SECRET_ACCESS_KEY=your_secret_key
 AWS_REGION=us-east-1
-BEDROCK_MODEL_ID=us.anthropic.claude-sonnet-4-20250514-v1:0
+BEDROCK_MODEL_ID=your_model
 
 # JWT Secret Key
-JWT_SECRET_KEY=your-super-secret-jwt-key-change-this-in-production
+JWT_SECRET_KEY=your-super-secret-jwt-key
 
-# Optional: LangSmith tracing
-LANGSMITH_API_KEY=your_langsmith_key
-LANGSMITH_TRACING=true
 ```
 
 ### 3. Run the Application
