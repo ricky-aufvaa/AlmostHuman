@@ -35,6 +35,13 @@ A FastAPI-based RAG (Retrieval-Augmented Generation) system with JWT authenticat
     └── ...
 ```
 
+## Screenshots
+![screenshot](screenshots/1.png)
+![screenshot](screenshots/2.png)
+![screenshot](screenshots/3.png)
+![screenshot](screenshots/4.png)
+![screenshot](screenshots/5.png)
+
 ## Setup Instructions
 
 ### 1. Install Dependencies
