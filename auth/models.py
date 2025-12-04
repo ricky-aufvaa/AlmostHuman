@@ -43,3 +43,15 @@ class Token(BaseModel):
 
 class TokenData(BaseModel):
     user_id: Optional[int] = None
+
+class ResetPasswordRequest(BaseModel):
+    email: str
+
+class ResetPasswordConfirm(BaseModel):
+    email: str
+    reset_code: str
+    new_password: str
+
+class ResetPasswordResponse(BaseModel):
+    message: str
+    reset_code: Optional[str] = None

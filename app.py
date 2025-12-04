@@ -11,7 +11,8 @@ load_dotenv()
 
 # Import auth and database modules
 from auth.auth_handler import AuthHandler
-from auth.models import User, UserCreate, UserLogin, Token
+# from auth.models import User, UserCreate, UserLogin, Token
+from auth.models import *
 from auth.database import get_db, create_tables
 from sqlalchemy.orm import Session
 
@@ -130,6 +131,71 @@ async def signin(user_credentials: UserLogin, db: Session = Depends(get_db)):
 async def login(user_credentials: UserLogin, db: Session = Depends(get_db)):
     """Alias for signin endpoint"""
     return await signin(user_credentials, db)
+
+@app.post("/forgot-password", response_model=ResetPasswordResponse)
+async def forgot_password(request: ResetPasswordRequest, db: Session = Depends(get_db)):
+    """Initiate password reset process"""
+    # Check if user exists
+    user = db.query(User).filter(User.email == request.email).first()
+    if not user:
+        # Don't reveal if email exists or not for security
+        return ResetPasswordResponse(
+            message="If the email exists, a reset code has been sent."
+        )
+    
+    # Generate reset code
+    reset_code = auth_handler.initiate_password_reset(request.email)
+    
+    # For mock implementation, return the reset code
+    # In production, this would be sent via email
+    return ResetPasswordResponse(
+        message="Reset code generated successfully. Check your email.",
+        reset_code=reset_code  # Remove this in production!
+    )
+
+@app.post("/reset-password", response_model=ResetPasswordResponse)
+async def reset_password(request: ResetPasswordConfirm, db: Session = Depends(get_db)):
+    """Reset password using reset code"""
+    try:
+        # Find user by email
+        user = db.query(User).filter(User.email == request.email).first()
+        if not user:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Invalid email or reset code"
+            )
+        
+        # Verify reset code and update password
+        if auth_handler.reset_password_with_code(request.email, request.reset_code):
+            try:
+                # Hash new password and update user
+                new_hashed_password = auth_handler.get_password_hash(request.new_password)
+                user.hashed_password = new_hashed_password
+                db.commit()
+                
+                return ResetPasswordResponse(
+                    message="Password reset successfully"
+                )
+            except Exception as e:
+                db.rollback()
+                print(f"Database error: {str(e)}")  # Debug logging
+                raise HTTPException(
+                    status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                    detail=f"Failed to reset password: {str(e)}"
+                )
+        else:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Invalid email or reset code"
+            )
+    except HTTPException:
+        raise
+    except Exception as e:
+        print(f"Unexpected error: {str(e)}")  # Debug logging
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Unexpected error: {str(e)}"
+        )
 
 # Protected RAG endpoint
 @app.post("/query", response_model=QueryResponse)

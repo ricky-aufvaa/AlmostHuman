@@ -83,6 +83,22 @@ def logout_user():
     st.session_state.user_info = None
     st.session_state.chat_history = []
 
+def forgot_password(email: str) -> Optional[str]:
+    """Request password reset code"""
+    data = {"email": email}
+    response = make_request("/forgot-password", "POST", data)
+    
+    if response:
+        return response.get("reset_code")  # For mock implementation
+    return None
+
+def reset_password(email: str, reset_code: str, new_password: str) -> bool:
+    """Reset password with code"""
+    data = {"email": email, "reset_code": reset_code, "new_password": new_password}
+    response = make_request("/reset-password", "POST", data)
+    
+    return response is not None
+
 def query_rag(question: str) -> Optional[str]:
     """Query the RAG system"""
     data = {"question": question, "session_id": "streamlit_session"}
@@ -110,7 +126,7 @@ def main():
     if not st.session_state.authenticated:
         st.header("Authentication Required")
         
-        tab1, tab2 = st.tabs(["Login", "Sign Up"])
+        tab1, tab2, tab3 = st.tabs(["Login", "Sign Up", "Forgot Password"])
         
         with tab1:
             st.subheader("Login to your account")
@@ -152,6 +168,79 @@ def main():
                                 st.error("Sign up failed. Email might already be registered.")
                     else:
                         st.error("Please fill in all fields.")
+        
+        with tab3:
+            st.subheader("Reset your password")
+            
+            # Initialize session state for forgot password flow
+            if "reset_step" not in st.session_state:
+                st.session_state.reset_step = 1
+            if "reset_email" not in st.session_state:
+                st.session_state.reset_email = ""
+            if "reset_code" not in st.session_state:
+                st.session_state.reset_code = ""
+            
+            if st.session_state.reset_step == 1:
+                # Step 1: Request reset code
+                st.write("Enter your email address to receive a reset code:")
+                with st.form("forgot_password_form"):
+                    email = st.text_input("Email", key="forgot_email")
+                    submit_forgot = st.form_submit_button("Send Reset Code")
+                    
+                    if submit_forgot:
+                        if email:
+                            reset_code = forgot_password(email)
+                            if reset_code:
+                                st.session_state.reset_email = email
+                                st.session_state.reset_code = reset_code
+                                st.session_state.reset_step = 2
+                                st.success(f"Reset code sent! Your code is: **{reset_code}**")
+                                st.info("In a real application, this code would be sent to your email.")
+                                st.rerun()
+                            else:
+                                st.error("Failed to send reset code. Please check your email address.")
+                        else:
+                            st.error("Please enter your email address.")
+            
+            elif st.session_state.reset_step == 2:
+                # Step 2: Enter reset code and new password
+                st.write(f"Reset code has been sent to: **{st.session_state.reset_email}**")
+                st.info(f"Your reset code is: **{st.session_state.reset_code}**")
+                
+                with st.form("reset_password_form"):
+                    reset_code_input = st.text_input("Enter Reset Code")
+                    new_password = st.text_input("New Password", type="password", key="reset_new_password")
+                    confirm_new_password = st.text_input("Confirm New Password", type="password", key="reset_confirm_password")
+                    
+                    col1, col2 = st.columns(2)
+                    with col1:
+                        submit_reset = st.form_submit_button("Reset Password")
+                    with col2:
+                        cancel_reset = st.form_submit_button("Cancel")
+                    
+                    if cancel_reset:
+                        st.session_state.reset_step = 1
+                        st.session_state.reset_email = ""
+                        st.session_state.reset_code = ""
+                        st.rerun()
+                    
+                    if submit_reset:
+                        if reset_code_input and new_password and confirm_new_password:
+                            if new_password != confirm_new_password:
+                                st.error("Passwords do not match.")
+                            elif len(new_password) < 6:
+                                st.error("Password must be at least 6 characters long.")
+                            else:
+                                if reset_password(st.session_state.reset_email, reset_code_input, new_password):
+                                    st.success("Password reset successfully! You can now login with your new password.")
+                                    st.session_state.reset_step = 1
+                                    st.session_state.reset_email = ""
+                                    st.session_state.reset_code = ""
+                                    st.rerun()
+                                else:
+                                    st.error("Invalid reset code or failed to reset password.")
+                        else:
+                            st.error("Please fill in all fields.")
     
     else:
         # Main application for authenticated users

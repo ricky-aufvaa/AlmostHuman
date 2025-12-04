@@ -1,7 +1,9 @@
+import string
+import secrets
 from jose import jwt
 from datetime import datetime, timedelta
 import bcrypt
-from typing import Optional
+from typing import Optional, Dict
 import os
 from dotenv import load_dotenv
 
@@ -13,6 +15,8 @@ class AuthHandler:
         self.secret_key = os.getenv("JWT_SECRET_KEY", "your-secret-key-change-this-in-production")
         self.algorithm = "HS256"
         self.access_token_expire_minutes = 30
+        # Add a simple in-memory store for reset codes (for mock implementation)
+        self.reset_codes: Dict[str, str] = {}  # email -> reset_code
     
     def get_password_hash(self, password: str) -> str:
         """Hash a password using bcrypt"""
@@ -78,3 +82,35 @@ class AuthHandler:
         if user_id:
             return self.encode_token(user_id)
         return None
+
+
+    def generate_reset_code(self) -> str:
+        """Generate a 6-digit reset code"""
+        return ''.join(secrets.choice(string.digits) for _ in range(6))
+    
+    def initiate_password_reset(self, email: str) -> str:
+        """Initiate password reset process - returns reset code for mock implementation"""
+        reset_code = self.generate_reset_code()
+        self.reset_codes[email] = reset_code
+        
+        # In a real implementation, you would:
+        # 1. Send email with reset code
+        # 2. Store reset code with expiration in database
+        # 3. Return success message without exposing the code
+        
+        return reset_code  # Only for mock - don't return this in production!
+    
+    def verify_reset_code(self, email: str, reset_code: str) -> bool:
+        """Verify if the reset code is valid for the given email"""
+        stored_code = self.reset_codes.get(email)
+        if stored_code and stored_code == reset_code:
+            return True
+        return False
+    
+    def reset_password_with_code(self, email: str, reset_code: str) -> bool:
+        """Verify reset code and remove it if valid"""
+        if self.verify_reset_code(email, reset_code):
+            # Remove the used reset code
+            del self.reset_codes[email]
+            return True
+        return False
